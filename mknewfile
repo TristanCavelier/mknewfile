@@ -1,0 +1,86 @@
+#!/bin/sh
+
+#  mknewfile Version 0.1.0
+#
+#  Copyright (c) 2017 Tristan Cavelier <t.cavelier@free.fr>
+#
+#  This program is free software. It comes without any warranty, to
+#  the extent permitted by applicable law. You can redistribute it
+#  and/or modify it under the terms of the Do What The Fuck You Want
+#  To Public License, Version 2, as published by Sam Hocevar. See
+#  http://www.wtfpl.net/ for more details.
+
+set -e
+cmd=$(basename "$0") || cmd=mknewfile
+print() { printf %s "$*" ; }
+println() { printf '%s\n' "$*" ; }
+err() { println "$cmd: $*" >&2 ; }
+#checkcommands() ( res=0 ; while [ $# != 0 ] ; do command -v -- "$1" > /dev/null || { res=1 ; err "command \`$1\` not found in PATH" >&2 ; } || : ; shift || return 2 ; done ; return $res ; )
+#checkcommands command trap eval printf expr dirname basename mktemp env sed mv
+
+atexit() { eval "$atexit" ; exit $1 ; }
+die() { err "$1" ; atexit "${2:-1}" ; }  # die message [exitcode]
+extname() { expr match "$1" '^\.\?.*\(\.[^.]*\)$' || : ; }  # extname path
+quote() { print \' ; print "$1" | sed s/\'/\'\\\\\'\'/g ; println \' ; }  # quote text
+protectedeval() { env -i /bin/sh -c "$*" ; }
+
+defaultformat='${name}_$i$ext'
+usage="Usage: $cmd DESIREDPATH [BASEFORMAT]
+
+Create a file and print its name. DESIREDPATH is the file path to create, if the
+file already exists, it restarts the operation after changing the file basename
+thanks to BASEFORMAT (defaults to \"$defaultformat\").
+
+BASEFORMAT is evaluated in a subshell to control the file basename.
+Example:
+
+    $ touch foo.txt
+    $ $cmd foo.txt 'basename: \$basename, name: \$name, ext: \$ext, i: \$i'
+    basename: foo.txt, name: foo, ext: .txt, i: 1
+
+Usage example:
+
+    $ test -e hello.txt ; echo \$?
+    0
+    $ test -e hello_1.txt ; echo \$?
+    1
+    $ $cmd hello.txt
+    hello_1.txt
+    $ test -e hello_1.txt ; echo \$?
+    0"
+
+[ $# = 1 -o $# = 2 ] || { echo "$usage" ; exit 1 ; }
+
+evalbasename() {
+  # evalbasename format basename name ext i
+  protectedeval "
+basename=$(quote "$2")
+name=$(quote "$3")
+ext=$(quote "$4")
+i=$5
+printf %s \"$(print "$1" | sed s/\"/\\\"/g)\"
+"
+}
+
+format=${2:-$defaultformat}
+
+desired_dirname=$(dirname -- "$1")
+desired_basename=$(basename -- "$1")
+desired_extension=$(extname "$desired_basename")
+desired_name=$(basename -- "$1" "$desired_extension")
+
+trap -- atexit INT
+tmpf=$(mktemp mknewfile.tmp.XXXXXXXXXX)
+# XXX What if INT before trap ?
+atexit="rm -f $(quote "$tmpf") 2>/dev/null"
+out=$1
+i=1
+mv -nT -- "$tmpf" "$out"
+while [ -e "$tmpf" ] ; do
+  out2=$(evalbasename "$format" "$desired_basename" "$desired_name" "$desired_extension" "$i") || die "invalid BASE_FORMAT"
+  [ "$out" != "$out2" ] || die "same format result"
+  out=$out2
+  i=$(($i+1))
+  mv -nT -- "$tmpf" "$out"
+done
+println "$out"
