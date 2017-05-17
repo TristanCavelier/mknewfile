@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#  mknewfile Version 0.1.0
+#  mknewfile Version 0.1.1
 #
 #  Copyright (c) 2017 Tristan Cavelier <t.cavelier@free.fr>
 #
@@ -11,10 +11,10 @@
 #  http://www.wtfpl.net/ for more details.
 
 set -e
-cmd=$(basename "$0") || cmd=mknewfile
+cmd=$(basename "$0" 2>/dev/null) || cmd=mknewfile
 print() { printf %s "$*" ; }
 println() { printf '%s\n' "$*" ; }
-err() { println "$cmd: $*" >&2 ; }
+err() { printf '%s\n' "$cmd: $*" >&2 ; }
 #checkcommands() ( res=0 ; while [ $# != 0 ] ; do command -v -- "$1" > /dev/null || { res=1 ; err "command \`$1\` not found in PATH" >&2 ; } || : ; shift || return 2 ; done ; return $res ; )
 #checkcommands command trap eval printf expr dirname basename mktemp env sed mv
 
@@ -55,8 +55,14 @@ evalbasename() {
   # evalbasename format basename name ext i
   protectedeval "
 basename=$(quote "$2")
+base=$(quote "$2")
+b=$(quote "$2")
 name=$(quote "$3")
+n=$(quote "$3")
+extension=$(quote "$4")
 ext=$(quote "$4")
+e=$(quote "$4")
+index=$5
 i=$5
 printf %s \"$(print "$1" | sed s/\"/\\\"/g)\"
 "
@@ -78,6 +84,7 @@ i=1
 mv -nT -- "$tmpf" "$out"
 while [ -e "$tmpf" ] ; do
   out2=$(evalbasename "$format" "$desired_basename" "$desired_name" "$desired_extension" "$i") || die "invalid BASE_FORMAT"
+  out2=$desired_dirname/$out2
   [ "$out" != "$out2" ] || die "same format result"
   out=$out2
   i=$(($i+1))

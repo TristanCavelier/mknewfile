@@ -1,7 +1,7 @@
 mknewfile
 =========
 
-Shell tool to create new files ( {ba,da,}sh compatible ) (version 0.1.0)
+Shell tool to create new files ( {ba,da,}sh compatible ) (version 0.1.1)
 
 - [Usage](#usage)
 - [License](#license)
